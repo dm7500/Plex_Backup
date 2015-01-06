@@ -14,13 +14,9 @@ import sys
 import shutil
 import logging
 import datetime
-# import dropbox
-# import plexapi
+import dropbox
 import zipfile
-import zlib
 import errno
-
-
 
 #Setting up logging and other housekeeping
 myDate = datetime.datetime.now().strftime("%y-%m-%d")
@@ -29,14 +25,18 @@ myDateTime = datetime.datetime.now().strftime("%y-%m-%d %H:%M")
 
 scriptdir = module_locator.module_path()
 logdir = scriptdir + '\\logs\\'
-tempdir = 'C:\\Plex Backup - %s\\' % myDate
+tempdir = 'C:\\temp\\Plex Backup-%s\\' % myDate
 regbackupfile = tempdir + "PlexRegistry-" + myDate + ".reg"
-# regbackupfile = scriptdir + '\\test.reg'
 PlexDBDir = os.environ['LOCALAPPDATA'] + "\\Plex Media Server\\"
 PZtemp = tempdir + "PlexBackup-" + myDate + ".zip"
-BackupFile = "Y:\\Plex Backups\\PB-" + myDate + ".zip"
-BackupDir = "Y:\\Plex Backups\\"
+BackupFile = tempdir + "PB-" + myDate + ".zip"
+BackupDir = tempdir
 allowZip64 = True
+DB_appkey = '2tenjnd5fxlxxzj'
+DB_appsecret = '7jfpfvnx7seew3i'
+ACCESS_TYPE = 'app_folder'
+auth_token = 'bB7LjlOoHncAAAAAAAAkCLBdTWfmixI2IMiSy6lSLqAPD6YEgUHYCcFjFleqte6j'
+db = dropbox.client.DropboxClient(auth_token)
 
 logger = logging.getLogger('Plex Backup')
 logdate = datetime.datetime.now().strftime("%y-%m-%d-%H-%M")
@@ -47,16 +47,6 @@ hdlr.setFormatter(formatter)
 logger.addHandler(hdlr)
 logger.setLevel(logging.INFO)
 ###################################
-
-def copy(src, dest):
-    try:
-        shutil.copytree(src, dest)
-    except OSError as e:
-        # If the error was caused because the source wasn't a directory
-        if e.errno == errno.ENOTDIR:
-            shutil.copy(src, dst)
-        else:
-            print('Directory not copied. Error: %s' % e)
 
 def make_zipfile(output_filename, source_dir):
     relroot = os.path.abspath(os.path.join(source_dir, os.pardir))
@@ -69,7 +59,6 @@ def make_zipfile(output_filename, source_dir):
                 if os.path.isfile(filename): # regular files only
                     arcname = os.path.join(os.path.relpath(root, relroot), file)
                     zip.write(filename, arcname)
-
 
 
 
@@ -97,12 +86,19 @@ def main():
     logger.info("Initial PMS ZIP captured. ZIP size is %s" % zipsize1)
     #todo: Need to parse the zip file size into a readable format.
     ###############################
+
     ###############################
     #Creates new Zip file containing both PMS dir and regkeys
     logger.info("Creating final ZIP backup file.")
     make_zipfile(BackupFile, tempdir)
     logger.info("Final Backup Zip completed.")
     ################################
+
+    ###################################
+    #Uploads the final Zip to Dropbox for archiving
+    archiveloc = db.put_file('/PB-' + myDate + '.zip', BackupFile)
+    print "uploaded: ", archiveloc
+    ###################################
 
     ###################################
     #This section clears out the temp directory to save space
